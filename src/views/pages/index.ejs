@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>规则配置系统</title>
+    <!-- build:css /style/css/t.css -->
+    <link type="text/css" rel="stylesheet" href="/style/css/t.css"></link>
+    <!-- endbuild -->
+</head>
+<body>
+<div class="g-body">
+    <% include ../partials/header.ejs %>
+    <div class="g-side">
+        <div class="m-nav-logo"></div>
+        <div class="m-nav"></div>
+    </div>
+    <div class="g-doc">
+        <div class="m-table-bar">
+            <button class="x-button" id="newGroup">新建分群</button>
+            <button class="x-button" id="delGroup">删除分群</button>
+            <button class="x-button" id="newColumn">添加字段</button>
+            <button class="x-button" id="delColumn">删除字段</button>
+            <button class="x-button" id="toggleEdit">编辑模式</button>
+            <button class="x-button" id="showLog">查看日志</button>
+        </div>
+        <table id="groupTable" class="x-table">
+            <thead>
+            <tr>
+                <th><label>
+                        <input type="checkbox" class="x-checkbox-proxy" name="">
+                        <span><span class="x-icon">▢</span><span class="x-icon">☑</span></span>编码ID
+                    </label></th>
+                <th>群组名称</th>
+                <th>状态</th>
+                <th>年龄</th>
+                <th>婚姻状况</th>
+                <th>级别</th>
+                <th>资产</th>
+            </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+        <% include ../partials/pagination.ejs %>
+    </div>
+</div>
+<script type="text/javascript" src="/js/common.js"></script>
+<script src="/js/f/a.js"></script>
+</body>
+</html>

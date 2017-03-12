@@ -1,0 +1,10 @@
+/* line 1, ../scss/t.scss */
+body {
+  background: #fff;
+}
+
+/* line 4, ../scss/t.scss */
+.test {
+  color: red;
+  background: url("/style/img/ico.png");
+}
