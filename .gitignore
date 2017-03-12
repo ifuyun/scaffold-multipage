@@ -1,0 +1,7 @@
+﻿node_modules
+.git
+.idea
+.sass-cache
+.tmp
+dev
+dist

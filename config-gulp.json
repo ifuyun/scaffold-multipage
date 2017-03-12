@@ -1,0 +1,29 @@
+{
+  "port": 8888,
+  "openurl": "http://localhost:8888",
+  "pathDist": "dist",
+  "pathSrc": "src",
+  "pathDistHtml": "",
+  "pathDistJs": "dist/js",
+  "pathPages": "views/pages",
+  "pathScss": "style/scss",
+  "pathDev": "dev",
+  "pathDevMock": "dev/mock",
+  "pathDevHtml": "dev/html",
+  "pathDevJs": "dev/js",
+  "pathCss": "style/css",
+  "pathImg": "style/img",
+  "pathFonts": "style/fonts",
+  "pathEjs": "views/pages",
+  "pathTmp": ".tmp",
+  "pathTmp1": ".tmp/step1",
+  "pathTmp2": ".tmp/step2",
+  "pathTmpHtml": "html",
+  "urlJs": "/js",
+  "urlCss": "/style/css",
+  "urlImg": "/style/img",
+  "urlFonts": "/style/fonts",
+  "ajaxPrefix": [
+    "/ajax"
+  ]
+}
