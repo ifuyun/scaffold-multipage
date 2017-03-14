@@ -61,7 +61,7 @@ gulp build
 <script type="text/javascript" src="/js/xxx/xxx.js"></script>
 ```
 ## CSS部分
-通过以下方式定义：
+通过以下方式定义（在build块内的多个css文件将合并成一个，：
 
 ```html
 <!-- build:css /style/css/xxx.css -->
