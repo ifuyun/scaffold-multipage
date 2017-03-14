@@ -3,7 +3,7 @@ Gulp+Webpack多页系统方案脚手架
 
 # 前置条件
 1. Node.js
-2. Ruby
+2. [Ruby](http://www.ruby-lang.org/en/downloads/)
 
 # 环境配置
 ```bash
@@ -22,6 +22,7 @@ npm i -g webpack
 ```bash
 gulp serve
 ```
+或
 
 ```bash
 gulp
