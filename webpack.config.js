@@ -47,7 +47,10 @@ const uglifyPlugin = new webpack.optimize.UglifyJsPlugin({
         warnings: false
     }
 });
-const providePlugin = new webpack.ProvidePlugin({});
+const providePlugin = new webpack.ProvidePlugin({
+    '$': 'jquery',
+    'jQuery': 'jquery'
+});
 module.exports = {
     entry: getEntry(),
     output: {

@@ -61,7 +61,7 @@ function getMimeType(reqPath) {
         , eot: 'application/vnd.ms-fontobject'
         , json: 'application/json'
     };
-    const reqFormat = /\.([a-z0-9]+)$/i.exec(reqPath);
+    const reqFormat = /\.([a-z0-9]+)$/i.exec(reqPath) || 'json';
     let reqType = '';
     if (reqFormat.length > 1) {
         reqType = mimeType[reqFormat[1]];

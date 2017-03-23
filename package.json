@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "multipage app based on gulp & webpack",
-  "dependencies": {},
+  "dependencies": {
+    "jquery": "^3.2.1"
+  },
   "devDependencies": {
     "babel-core": "^6.23.1",
     "babel-loader": "^6.3.2",
