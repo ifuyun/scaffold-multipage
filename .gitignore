@@ -3,5 +3,6 @@
 .idea
 .sass-cache
 .tmp
-dev
+dev/html
+dev/js
 dist
