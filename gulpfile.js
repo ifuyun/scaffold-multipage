@@ -2,6 +2,7 @@
  * Gulp Config File
  * @author Fuyun
  */
+// TODO livereload, server, path, through2 are unused
 const gulp = require('gulp');
 const express = require('express');
 const openurl = require('openurl');
@@ -27,6 +28,22 @@ const revReplace = require('gulp-rev-replace');
 const argv = require('yargs').argv;
 const config = require('./config-gulp.json');
 
+const mimeType = {
+    js: 'text/javascript',
+    css: 'text/css',
+    html: 'text/html',
+    svg: 'image/svg+xml',
+    woff: 'application/font-woff',
+    ttf: 'application/octet-stream',
+    otf: 'application/octet-stream',
+    eot: 'application/vnd.ms-fontobject',
+    json: 'application/json'
+};
+
+/**
+ * @param {Array} cmds
+ * @param {Object} processOpts
+ */
 function execCmd(cmds, processOpts) {
     let opts;
     if (os.platform() === 'win32') {
@@ -41,26 +58,25 @@ function execCmd(cmds, processOpts) {
         throw new Error('Exec cmd: [' + opts.join(' ') + ']');
     }
 }
+
+/**
+ * insert a script of the livereload.js into the html string
+ * @param {String} html
+ */
 function injectHtml(html) {
     const index = html.lastIndexOf('</body>');
     if (index !== -1) {
-        const script = '\n<script>document.write(\'<script src="http://\' + (location.host || \'localhost\').split(\':\')[0] + \':' + config.port + '/livereload.js?snipver=1"></\' + \'script>\')</script>\n';
+        const script =  '\n<script>document.write(\'<script src="http://\' + (location.host || \'localhost\').split(\':\')[0] + \':' + config.port + '/livereload.js?snipver=1"></\' + \'script>\')</script>\n';
         return html.substr(0, index) + script + html.substr(index);
     }
     return html;
 }
+
+/**
+ *
+ * @param {String} reqPath
+ */
 function getMimeType(reqPath) {
-    const mimeType = {
-        js: 'text/javascript'
-        , css: 'text/css'
-        , html: 'text/html'
-        , svg: 'image/svg+xml'
-        , woff: 'application/font-woff'
-        , ttf: 'application/octet-stream'
-        , otf: 'application/octet-stream'
-        , eot: 'application/vnd.ms-fontobject'
-        , json: 'application/json'
-    };
     const reqFormat = /\.([a-z0-9]+)$/i.exec(reqPath);
     let reqType = '';
     if (reqFormat.length > 1) {
@@ -68,6 +84,7 @@ function getMimeType(reqPath) {
     }
     return reqType || 'text/plain';
 }
+
 function routeFilter(staticPath) {
     return function (req, res, next) {
         const reqPath = req.path === '/' ? '/index.html' : req.path;
@@ -89,42 +106,102 @@ function routeFilter(staticPath) {
         }
     };
 }
+
+/**
+ * compile all the ejs files of the config.pathEjs dir
+ * into html files from pathSrc to pathDist
+ * @param {String} pathSrc the dir of the src path
+ * @param {String} pathDist the dir of the target path
+ */
 function transformEjs(pathSrc, pathDist) {
-    return gulp.src(path.join(pathSrc, config.pathEjs, '/**/*.ejs')).pipe(ejs()).pipe(rename(function (path) {
+    return gulp.src(
+        path.join(pathSrc, config.pathEjs, '/**/*.ejs')
+    )
+    .pipe(ejs())
+    .pipe(rename(function (path) {
         path.extname = '.html';
-    })).pipe(gulp.dest(pathDist));
+    }))
+    .pipe(gulp.dest(pathDist));
 }
 
+/**
+ * run task clean
+ *
+ * config.pathDist
+ * config.pathTmp1
+ * config.pathTmp2
+ * Removes files and folders.
+ *
+ * {read: false}
+ * Option read:false prevents gulp from reading the contents of the file
+ * and makes this task a lot faster.
+ *
+ * If you need the file and its contents after cleaning in the same stream,
+ * do not set the read option to false.
+ */
 gulp.task('clean', function () {
-    return gulp.src([config.pathDist, config.pathTmp1, config.pathTmp2], {
-        read: false
-    }).pipe(clean());
+    return gulp.src(
+        [config.pathDist, config.pathTmp1, config.pathTmp2],
+        {read: false}
+    )
+    .pipe(clean());
 });
+
+/**
+ * run task webpack in production env
+ */
 gulp.task('webpack', function () {
     execCmd(['webpack']);
 });
 
+/**
+ * run task webpack in develop env
+ */
 gulp.task('webpack-dev', function () {
     execCmd(['webpack', '--env', 'develop']);
 });
+
 gulp.task('ejs', function () {
-    transformEjs(config.pathSrc, config.pathDevHtml);
-});
-gulp.task('ejs-dist', function () {
-    transformEjs(config.pathTmp1, path.join(config.pathTmp1, config.pathTmpHtml));
+    transformEjs(
+        config.pathSrc,
+        config.pathDevHtml
+    );
 });
 
+gulp.task('ejs-dist', function () {
+    transformEjs(
+        config.pathTmp1,
+        path.join(config.pathTmp1, config.pathTmpHtml)
+    );
+});
+
+/**
+ * 1 set up the livereload server
+ * 2 init the files
+ * 3 watch html, ejs, scss, js files
+ */
 gulp.task('serve', function (cb) {
     const app = express();
+
+    // 1. router set the correct Content-Type
+    // 2. server send the target content to the client
     app.use(config.ajaxPrefix, routeFilter(config.pathDevMock));
     app.use(config.urlJs, routeFilter(config.pathDevJs));
     app.use(config.urlCss, routeFilter(path.join(config.pathSrc, config.pathCss)));
     app.use(config.urlImg, routeFilter(path.join(config.pathSrc, config.pathImg)));
     app.use(config.urlFonts, routeFilter(path.join(config.pathSrc, config.pathFonts)));
     app.use(['/'], routeFilter(config.pathDevHtml));
-    app.use(body()).use(tinylr.middleware({
+
+    // use bodyParser as the default ajax converter
+    app.use(body());
+
+    // setup the livereload server
+    app.use(tinylr.middleware({
         app: app
     }));
+
+    // 1. setup express app on the config.port
+    // 2. open url if neccessary
     app.listen(config.port, function (err) {
         if (err) {
             return console.error(err);
@@ -135,10 +212,36 @@ gulp.task('serve', function (cb) {
         console.log('Server listening on %d', config.port);
     });
 
+    /**
+     * watch special kind of ext
+     * do sth when change according to the ext type
+     * ---------------
+     * ext type:
+     *
+     * ejs:
+     *      1. transformEjs
+     *      2. tinylr.changed(event.path)
+     *      end
+     *
+     * scss:
+     * other ext:
+     *      1. compass compile
+     *      2. tinylr.changed(a.css) ????
+     *
+     * webpack --env develop
+     * tinylr.changed(event.path)
+     * end
+     *
+     * @param {String} ext
+     */
     function watchFiles(ext) {
         gulp.watch(['./src/**/*.' + ext], function (event) {
             if (ext === 'ejs') {
-                transformEjs(config.pathSrc, config.pathDevHtml).on('end', function () {
+                transformEjs(
+                    config.pathSrc,
+                    config.pathDevHtml
+                )
+                .on('end', function () {
                     tinylr.changed(event.path);
                 });
                 return false;
@@ -151,21 +254,29 @@ gulp.task('serve', function (cb) {
         });
     }
 
+    // compass compile the sass files
     execCmd(['compass', 'compile']);
+
+    // init files
+    // 1. ejs
+    // 2. webpack-dev
     runSequence('ejs', 'webpack-dev');
 
+    // then watch these ext type files
     watchFiles('html');
     watchFiles('ejs');
     watchFiles('scss');
     watchFiles('js');
 });
+
 gulp.task('server', function (cb) {
     const app = express();
+
     app.use(config.ajaxPrefix, routeFilter(config.pathDevMock));
     app.use(['/'], routeFilter(config.pathDist));
-    app.use(body()).use(tinylr.middleware({
-        app: app
-    }));
+    app.use(body());
+    app.use(tinylr.middleware({app: app}));
+
     app.listen(config.port, function (err) {
         if (err) {
             return console.error(err);
@@ -183,6 +294,21 @@ gulp.task('compass', function (cb) {
     cb();
 });
 
+/**
+ *
+ * useref-html:
+ *
+ * useref would compile s.css + d.css + fdfdf.css
+ * into /style/css/s.css
+ *
+ * <!-- build:css /style/css/s.css -->
+ * <link type="text/css" rel="stylesheet" href="/style/css/s.css"></link>
+ * <link type="text/css" rel="stylesheet" href="/style/css/d.css"></link>
+ * <link type="text/css" rel="stylesheet" href="/style/css/fdfdf.css"></link>
+ * <!-- endbuild -->
+ *
+ *
+ */
 gulp.task('useref-html', function () {
     return gulp.src(path.join(config.pathSrc, '**/*.{html,htm,ejs}'))
         .pipe(useref({
@@ -222,6 +348,7 @@ gulp.task('rev-image', function () {
         .pipe(rev.manifest('rev-manifest-img.json'))
         .pipe(gulp.dest(config.pathTmp2));
 });
+
 gulp.task('rev-flash', function () {
     return gulp.src([path.join(config.pathTmp1, '**/*.swf')])
         .pipe(rev())
@@ -229,6 +356,7 @@ gulp.task('rev-flash', function () {
         .pipe(rev.manifest('rev-manifest-flash.json'))
         .pipe(gulp.dest(config.pathTmp2));
 });
+
 gulp.task('rev-css', function () {
     return gulp.src([path.join(config.pathTmp1, '**/*.css')])
         .pipe(rev())
@@ -236,6 +364,7 @@ gulp.task('rev-css', function () {
         .pipe(rev.manifest('rev-manifest-css.json'))
         .pipe(gulp.dest(config.pathTmp2));
 });
+
 gulp.task('revreplace-css', function () {
     const manifest = gulp.src([
         path.join(config.pathTmp2, 'rev-manifest-img.json')
@@ -249,6 +378,7 @@ gulp.task('revreplace-css', function () {
         }))
         .pipe(gulp.dest(config.pathTmp1));
 });
+
 gulp.task('revreplace-ejs', function () {
     const manifest = gulp.src([
         path.join(config.pathTmp2, 'rev-manifest-img.json'),
@@ -256,40 +386,101 @@ gulp.task('revreplace-ejs', function () {
         path.join(config.pathTmp2, 'rev-manifest-css.json')
     ]);
 
-    return gulp.src(path.join(config.pathTmp1, config.pathTmpHtml, '**/*.html'))
-        .pipe(revReplace({
-            manifest: manifest,
-            replaceInExtensions: ['.html'],
-            prefix: ''
-        }))
-        .pipe(gulp.dest(path.join(config.pathTmp2, config.pathTmpHtml)));
+    return gulp.src(
+        path.join(config.pathTmp1, config.pathTmpHtml, '**/*.html')
+    )
+    .pipe(revReplace({
+        manifest: manifest,
+        replaceInExtensions: ['.html'],
+        prefix: ''
+    }))
+    .pipe(
+        gulp.dest(
+            path.join(config.pathTmp2, config.pathTmpHtml)
+        )
+    );
 });
 
 gulp.task('copy-webapp', function () {
-    return gulp.src(config.pathSrc + '/*.{ico,txt,xml}').pipe(gulp.dest(config.pathDist));
+    return gulp.src(
+        config.pathSrc + '/*.{ico,txt,xml}'
+    ).pipe(
+        gulp.dest(config.pathDist)
+    );
 });
+
 gulp.task('copy-build-css', function () {
-    return gulp.src(path.join(config.pathTmp2, config.pathCss, '**')).pipe(gulp.dest(path.join(config.pathDist, config.pathCss)));
+    return gulp.src(
+        path.join(config.pathTmp2, config.pathCss, '**')
+    ).pipe(
+        gulp.dest(
+            path.join(config.pathDist, config.pathCss)
+        )
+    );
 });
+
 gulp.task('copy-build-image', function () {
-    return gulp.src(path.join(config.pathTmp2, config.pathImg, '**')).pipe(gulp.dest(path.join(config.pathDist, config.pathImg)));
+    return gulp.src(
+        path.join(config.pathTmp2, config.pathImg, '**')
+    ).pipe(
+        gulp.dest(
+            path.join(config.pathDist, config.pathImg)
+        )
+    );
 });
+
 gulp.task('copy-build-fonts', function () {
-    return gulp.src(path.join(config.pathSrc, config.pathFonts, '**')).pipe(gulp.dest(path.join(config.pathDist, config.pathFonts)));
+    return gulp.src(
+        path.join(config.pathSrc, config.pathFonts, '**')
+    )
+    .pipe(
+        gulp.dest(
+            path.join(config.pathDist, config.pathFonts)
+        )
+    );
 });
+
 // gulp.task('copy-build-flash', function () {
 //     return gulp.src(path.join(config.pathTmp2, flashPath, '**')).pipe(gulp.dest(path.join(config.pathDist, flashPath)));
 // });
+
 gulp.task('copy-build-html', function () {
-    return gulp.src(path.join(config.pathTmp2, config.pathTmpHtml, '**/*.{html,htm}')).pipe(gulp.dest(path.join(config.pathDist)));
+    return gulp.src(
+        path.join(config.pathTmp2, config.pathTmpHtml, '**/*.{html,htm}')
+    ).pipe(
+        gulp.dest(
+            path.join(config.pathDist)
+        )
+    );
 });
 
-gulp.task('copy-build', ['copy-webapp', 'copy-build-css', 'copy-build-image', 'copy-build-fonts', 'copy-build-html']);
+gulp.task('copy-build', [
+    'copy-webapp',
+    'copy-build-css',
+    'copy-build-image',
+    'copy-build-fonts',
+    'copy-build-html'
+]);
 
 // gulp.task('rev', ['rev-image', 'rev-flash', 'rev-css']);
 // gulp.task('build', ['compass', 'useref', 'imagemin', 'rev-image', 'rev-flash', 'revreplace-css', 'rev-css', 'ejs-dist', 'revreplace-ejs']);
 
 gulp.task('build', function (cb) {
-    runSequence('clean', 'compass', 'useref', 'ejs-dist', 'imagemin', 'rev-image', 'rev-flash', 'revreplace-css', 'rev-css', 'revreplace-ejs', 'webpack', 'copy-build', cb);
+    runSequence(
+        'clean',
+        'compass',
+        'useref',
+        'ejs-dist',
+        'imagemin',
+        'rev-image',
+        'rev-flash',
+        'revreplace-css',
+        'rev-css',
+        'revreplace-ejs',
+        'webpack',
+        'copy-build',
+        cb
+    );
 });
+
 gulp.task('default', ['serve']);
