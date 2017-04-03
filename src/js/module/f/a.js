@@ -12,3 +12,10 @@ window.onload = function () {
         require('../../lib/p.c.js');
     });
 };
+
+// presets
+var obj = {a: 1, b: 2}
+var obj2 = {...obj}
+console.log("stage-0")
+console.log(obj2)
+

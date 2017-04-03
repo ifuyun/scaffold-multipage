@@ -41,7 +41,6 @@ const mimeType = {
 };
 
 /**
- *
  * @param {Array} cmds
  * @param {Object} processOpts
  */
