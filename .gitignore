@@ -5,3 +5,4 @@
 .tmp
 dev
 dist
+.npm-debug*
