@@ -10,7 +10,7 @@ const path = require('path');
 const glob = require('glob');
 const fs = require('fs');
 const argv = require('yargs').argv;
-const isDev = argv.env === 'develop' ? true : false;
+const isDev = argv.env === 'development' ? true : false;
 
 const getEntry = function () {
     let entry = {};

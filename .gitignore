@@ -3,6 +3,8 @@
 .idea
 .sass-cache
 .tmp
+/**/.DS_Store
+/**/*.css.map
 dev/html
 dev/js
 dist

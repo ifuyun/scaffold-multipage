@@ -7,6 +7,7 @@
   "pathDistJs": "dist/js",
   "pathPages": "views/pages",
   "pathScss": "style/scss",
+  "pathLess": "style/less",
   "pathDev": "dev",
   "pathDevMock": "dev/mock",
   "pathDevHtml": "dev/html",
