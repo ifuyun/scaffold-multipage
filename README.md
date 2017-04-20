@@ -25,12 +25,12 @@ npm i
 **注：服务+监听**
 
 ```bash
-gulp dev
+gulp dev -env development
 ```
 或
 
 ```bash
-gulp
+gulp -env development
 ```
 
 ## 测试
