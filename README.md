@@ -5,6 +5,10 @@ Gulp+Webpack多页系统方案脚手架
 1. Node.js
 2. [Ruby](http://www.ruby-lang.org/en/downloads/)
 
+**注1：Less无需安装Ruby、compass。**
+
+**注2：采用node-sass模块（安装不稳定）的也无需安装Ruby、compass。**
+
 # 环境配置
 ```bash
 gem install compass
@@ -13,6 +17,7 @@ gem install compass
 ```bash
 npm i -g gulp
 npm i -g webpack
+npm i
 ```
 
 # 运行
@@ -20,7 +25,7 @@ npm i -g webpack
 **注：服务+监听**
 
 ```bash
-gulp serve
+gulp dev
 ```
 或
 
@@ -29,10 +34,10 @@ gulp
 ```
 
 ## 测试
-**注：服务+build**
+**注：build+服务**
 
 ```bash
-gulp server
+gulp online
 ```
 
 ## 构建
@@ -45,7 +50,7 @@ gulp build
 
 * Webpack：模块化+ES6转码
 * Gulp：开发、打包等工程化工具
-* Sass
+* Sass/Less
 * EJS：HTML模板
 * ES6
 
