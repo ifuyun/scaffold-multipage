@@ -57,6 +57,9 @@ function getMimeType (reqPath) {
         js: 'text/javascript'
         , css: 'text/css'
         , html: 'text/html'
+        , png: 'image/png'
+        , jpg: 'image/jpeg'
+        , gif: 'image/gif'
         , svg: 'image/svg+xml'
         , woff: 'application/font-woff'
         , ttf: 'application/octet-stream'
@@ -123,14 +126,25 @@ gulp.task('ejs-dist', function () {
     transformEjs(config.pathTmp1, path.join(config.pathTmp1, config.pathTmpHtml));
 });
 
+gulp.task('compass', function (cb) {
+    execCmd(['compass', 'clean']);
+    execCmd(['compass', 'compile', '--env', argv.env || 'production']);
+    cb();
+});
+gulp.task('less', function (cb) {
+    return gulp.src(path.join(config.pathSrc, config.pathLess, '**/*.less'))
+        .pipe(less())
+        .pipe(gulp.dest(path.join(config.pathSrc, config.pathCss)));
+});
+
 gulp.task('start-server-dev', function () {
     const app = express();
 
     app.use(config.ajaxPrefix, routeFilter(config.pathDevMock));
-    app.use(config.urlJs, routeFilter(config.pathDevJs));
-    app.use(config.urlCss, routeFilter(path.join(config.pathSrc, config.pathCss)));
-    app.use(config.urlImg, routeFilter(path.join(config.pathSrc, config.pathImg)));
-    app.use(config.urlFonts, routeFilter(path.join(config.pathSrc, config.pathFonts)));
+    app.use(config.urlJs, express.static(config.pathDevJs));
+    app.use(config.urlCss, express.static(path.join(config.pathSrc, config.pathCss)));
+    app.use(config.urlImg, express.static(path.join(config.pathSrc, config.pathImg)));
+    app.use(config.urlFonts, express.static(path.join(config.pathSrc, config.pathFonts)));
     app.use(['/'], routeFilter(config.pathDevHtml));
     app.use(body()).use(tinylr.middleware({
         app: app
@@ -198,17 +212,6 @@ gulp.task('start-server-test', function (cb) {
         }
         console.log('Server listening on %d', config.port);
     });
-});
-
-gulp.task('compass', function (cb) {
-    execCmd(['compass', 'clean']);
-    execCmd(['compass', 'compile', '--env', argv.env || 'production']);
-    cb();
-});
-gulp.task('less', function (cb) {
-    return gulp.src(path.join(config.pathSrc, config.pathLess, '**/*.less'))
-        .pipe(less())
-        .pipe(gulp.dest(path.join(config.pathSrc, config.pathCss)));
 });
 
 gulp.task('useref-html', function () {

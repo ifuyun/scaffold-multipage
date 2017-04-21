@@ -35,7 +35,7 @@
     "yargs": "^7.0.2"
   },
   "scripts": {
-    "dev": "gulp dev -env development",
+    "dev": "gulp dev --env development",
     "online": "gulp online",
     "build": "gulp build"
   },

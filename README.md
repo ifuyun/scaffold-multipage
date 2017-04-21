@@ -25,22 +25,37 @@ npm i
 **注：服务+监听**
 
 ```bash
-gulp dev -env development
+npm run dev
 ```
 或
 
 ```bash
-gulp -env development
+gulp dev --env development
+```
+或
+
+```bash
+gulp --env development
 ```
 
 ## 测试
 **注：build+服务**
 
 ```bash
+npm run online
+```
+或
+
+```bash
 gulp online
 ```
 
 ## 构建
+```bash
+npm run build
+```
+或
+
 ```bash
 gulp build
 ```
