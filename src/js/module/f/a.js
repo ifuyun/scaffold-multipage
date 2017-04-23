@@ -19,3 +19,10 @@ window.onload = function () {
         console.log('result: ', data);
     });
 };
+
+// presets
+var obj = {a: 1, b: 2}
+var obj2 = {...obj}
+console.log("stage-0")
+console.log(obj2)
+

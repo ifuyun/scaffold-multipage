@@ -15,7 +15,6 @@ const exec = require('sync-exec');
 const ejs = require('gulp-ejs');
 const runSequence = require('run-sequence');
 const clean = require('gulp-clean');
-const through2 = require('through2');
 const rename = require('gulp-rename');
 const gulpif = require('gulp-if');
 const useref = require('gulp-useref');
@@ -44,6 +43,7 @@ function execCmd (cmds, processOpts) {
         throw new Error('Exec cmd: [' + opts.join(' ') + ']');
     }
 }
+
 function injectHtml (html) {
     const index = html.lastIndexOf('</body>');
     if (index !== -1) {
@@ -52,6 +52,7 @@ function injectHtml (html) {
     }
     return html;
 }
+
 function getMimeType (reqPath, staticPath) {
     const mimeType = {
         js: 'text/javascript'
@@ -76,6 +77,7 @@ function getMimeType (reqPath, staticPath) {
     }
     return reqType || 'text/plain';
 }
+
 function routeFilter (staticPath) {
     return function (req, res, next) {
         const reqPath = req.path === '/' ? '/index.html' : req.path;
@@ -97,10 +99,14 @@ function routeFilter (staticPath) {
         }
     };
 }
+
 function transformEjs (pathSrc, pathDist) {
-    return gulp.src(path.join(pathSrc, config.pathEjs, '/**/*.ejs')).pipe(ejs()).pipe(rename(function (path) {
-        path.extname = '.html';
-    })).pipe(gulp.dest(pathDist));
+    return gulp.src(path.join(pathSrc, config.pathEjs, '/**/*.ejs'))
+        .pipe(ejs())
+        .pipe(rename(function (path) {
+                path.extname = '.html';
+            }))
+        .pipe(gulp.dest(pathDist));
 }
 
 gulp.task('clean', function () {
@@ -125,6 +131,7 @@ gulp.task('webpack', function (cb) {
 gulp.task('ejs', function () {
     transformEjs(config.pathSrc, config.pathDevHtml);
 });
+
 gulp.task('ejs-dist', function () {
     transformEjs(config.pathTmp1, path.join(config.pathTmp1, config.pathTmpHtml));
 });
@@ -199,8 +206,10 @@ gulp.task('dev', function (cb) {
     // watchFiles('scss');
     watchFiles('less');
 });
+
 gulp.task('start-server-test', function (cb) {
     const app = express();
+
     app.use(config.ajaxPrefix, routeFilter(config.pathDevMock));
     app.use(['/'], routeFilter(config.pathDist));
     app.use(body()).use(tinylr.middleware({
@@ -225,7 +234,7 @@ gulp.task('useref-html', function () {
         .pipe(gulpif('*.css', minifyCss()))
         .pipe(gulp.dest(config.pathTmp1));
 });
-gulp.task('useref', ['useref-html']);//, 'useref-flash'
+gulp.task('useref', ['useref-html']);
 
 gulp.task('imagemin', function () {
     if (argv.imgMin && argv.imgMin === 'on') {
@@ -251,6 +260,7 @@ gulp.task('rev-image', function () {
         .pipe(rev.manifest('rev-manifest-img.json'))
         .pipe(gulp.dest(config.pathTmp2));
 });
+
 gulp.task('rev-flash', function () {
     return gulp.src([path.join(config.pathTmp1, '**/*.swf')])
         .pipe(rev())
@@ -258,6 +268,7 @@ gulp.task('rev-flash', function () {
         .pipe(rev.manifest('rev-manifest-flash.json'))
         .pipe(gulp.dest(config.pathTmp2));
 });
+
 gulp.task('rev-css', function () {
     return gulp.src([path.join(config.pathTmp1, '**/*.css')])
         .pipe(rev())
@@ -265,6 +276,7 @@ gulp.task('rev-css', function () {
         .pipe(rev.manifest('rev-manifest-css.json'))
         .pipe(gulp.dest(config.pathTmp2));
 });
+
 gulp.task('revreplace-css', function () {
     const manifest = gulp.src([
         path.join(config.pathTmp2, 'rev-manifest-img.json')
@@ -278,6 +290,7 @@ gulp.task('revreplace-css', function () {
         }))
         .pipe(gulp.dest(config.pathTmp1));
 });
+
 gulp.task('revreplace-ejs', function () {
     const manifest = gulp.src([
         path.join(config.pathTmp2, 'rev-manifest-img.json'),
@@ -295,19 +308,33 @@ gulp.task('revreplace-ejs', function () {
 });
 
 gulp.task('copy-webapp', function () {
-    return gulp.src(config.pathSrc + '/*.{ico,txt,xml}').pipe(gulp.dest(config.pathDist));
+    return gulp.src(config.pathSrc + '/*.{ico,txt,xml}')
+        .pipe(gulp.dest(config.pathDist));
 });
+
 gulp.task('copy-build-css', function () {
-    return gulp.src(path.join(config.pathTmp2, config.pathCss, '**')).pipe(gulp.dest(path.join(config.pathDist, config.pathCss)));
+    return gulp.src(path.join(config.pathTmp2, config.pathCss, '**'))
+        .pipe(gulp.dest(path.join(config.pathDist, config.pathCss)));
 });
+
 gulp.task('copy-build-image', function () {
-    return gulp.src(path.join(config.pathTmp2, config.pathImg, '**')).pipe(gulp.dest(path.join(config.pathDist, config.pathImg)));
+    return gulp.src(path.join(config.pathTmp2, config.pathImg, '**'))
+        .pipe(gulp.dest(path.join(config.pathDist, config.pathImg)));
 });
+
 gulp.task('copy-build-fonts', function () {
-    return gulp.src(path.join(config.pathSrc, config.pathFonts, '**')).pipe(gulp.dest(path.join(config.pathDist, config.pathFonts)));
+    return gulp.src(path.join(config.pathSrc, config.pathFonts, '**'))
+        .pipe(gulp.dest(path.join(config.pathDist, config.pathFonts)));
 });
+
+// gulp.task('copy-build-flash', function () {
+//     return gulp.src(path.join(config.pathTmp2, flashPath, '**'))
+//         .pipe(gulp.dest(path.join(config.pathDist, flashPath)));
+// });
+
 gulp.task('copy-build-html', function () {
-    return gulp.src(path.join(config.pathTmp2, config.pathTmpHtml, '**/*.{html,htm}')).pipe(gulp.dest(path.join(config.pathDist)));
+    return gulp.src(path.join(config.pathTmp2, config.pathTmpHtml, '**/*.{html,htm}'))
+        .pipe(gulp.dest(path.join(config.pathDist)));
 });
 
 gulp.task('copy-build', ['copy-webapp', 'copy-build-css', 'copy-build-image', 'copy-build-fonts', 'copy-build-html']);
