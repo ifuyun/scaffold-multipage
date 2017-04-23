@@ -1,6 +1,6 @@
 {
-  "port": 8888,
-  "openurl": "http://localhost:8888",
+  "port": 2017,
+  "openurl": "http://localhost:2017",
   "pathDist": "dist",
   "pathSrc": "src",
   "pathDistHtml": "",
