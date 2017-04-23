@@ -2,12 +2,10 @@
  * Gulp Config File
  * @author Fuyun
  */
-// TODO livereload, server, path, through2 are unused
 const gulp = require('gulp');
 const express = require('express');
 const openurl = require('openurl');
 const body = require('body-parser');
-const livereload = require('gulp-livereload');
 const tinylr = require('tiny-lr');
 const server = tinylr();
 const path = require('path');
@@ -17,7 +15,6 @@ const exec = require('sync-exec');
 const ejs = require('gulp-ejs');
 const runSequence = require('run-sequence');
 const clean = require('gulp-clean');
-const through2 = require('through2');
 const rename = require('gulp-rename');
 const gulpif = require('gulp-if');
 const useref = require('gulp-useref');
@@ -27,24 +24,16 @@ const rev = require('gulp-rev');
 const revReplace = require('gulp-rev-replace');
 const argv = require('yargs').argv;
 const config = require('./config-gulp.json');
-
-const mimeType = {
-    js: 'text/javascript',
-    css: 'text/css',
-    html: 'text/html',
-    svg: 'image/svg+xml',
-    woff: 'application/font-woff',
-    ttf: 'application/octet-stream',
-    otf: 'application/octet-stream',
-    eot: 'application/vnd.ms-fontobject',
-    json: 'application/json'
-};
+const gutil = require('gulp-util');
+const less = require('gulp-less');
+const webpack = require('webpack');
+const webpackConfig = require('./webpack.config');
 
 /**
  * @param {Array} cmds
  * @param {Object} processOpts
  */
-function execCmd(cmds, processOpts) {
+function execCmd (cmds, processOpts) {
     let opts;
     if (os.platform() === 'win32') {
         opts = ['cmd', '/c'];
@@ -63,10 +52,10 @@ function execCmd(cmds, processOpts) {
  * insert a script of the livereload.js into the html string
  * @param {String} html
  */
-function injectHtml(html) {
+function injectHtml (html) {
     const index = html.lastIndexOf('</body>');
     if (index !== -1) {
-        const script =  '\n<script>document.write(\'<script src="http://\' + (location.host || \'localhost\').split(\':\')[0] + \':' + config.port + '/livereload.js?snipver=1"></\' + \'script>\')</script>\n';
+        const script = '\n<script>document.write(\'<script src="http://\' + (location.host || \'localhost\').split(\':\')[0] + \':' + config.port + '/livereload.js?snipver=1"></\' + \'script>\')</script>\n';
         return html.substr(0, index) + script + html.substr(index);
     }
     return html;
@@ -76,26 +65,42 @@ function injectHtml(html) {
  *
  * @param {String} reqPath
  */
-function getMimeType(reqPath) {
-    const reqFormat = /\.([a-z0-9]+)$/i.exec(reqPath);
+function getMimeType (reqPath, staticPath) {
+    const mimeType = {
+        js: 'text/javascript'
+        , css: 'text/css'
+        , html: 'text/html'
+        , png: 'image/png'
+        , jpg: 'image/jpeg'
+        , gif: 'image/gif'
+        , svg: 'image/svg+xml'
+        , woff: 'application/font-woff'
+        , ttf: 'application/octet-stream'
+        , otf: 'application/octet-stream'
+        , eot: 'application/vnd.ms-fontobject'
+        , json: 'application/json'
+    };
+    const reqFormat = /\.([a-z0-9]+)$/i.exec(reqPath) || [];
     let reqType = '';
     if (reqFormat.length > 1) {
         reqType = mimeType[reqFormat[1]];
+    } else if (staticPath === config.pathDevMock) {
+        reqType = 'application/json';
     }
     return reqType || 'text/plain';
 }
 
-function routeFilter(staticPath) {
+function routeFilter (staticPath) {
     return function (req, res, next) {
         const reqPath = req.path === '/' ? '/index.html' : req.path;
         const filePath = path.join(staticPath, reqPath);
 
         if (fs.existsSync(filePath)) {
             if (/\.html$/.test(reqPath)) {
-                res.set('Content-Type', getMimeType(reqPath));
+                res.set('Content-Type', 'text/html');
                 res.send(injectHtml(fs.readFileSync(filePath, 'UTF-8')));
             } else {
-                res.set('Content-Type', getMimeType(reqPath));
+                res.set('Content-Type', getMimeType(reqPath, staticPath));
                 res.send(fs.readFileSync(filePath, 'UTF-8'));
             }
         } else {
@@ -113,15 +118,13 @@ function routeFilter(staticPath) {
  * @param {String} pathSrc the dir of the src path
  * @param {String} pathDist the dir of the target path
  */
-function transformEjs(pathSrc, pathDist) {
-    return gulp.src(
-        path.join(pathSrc, config.pathEjs, '/**/*.ejs')
-    )
-    .pipe(ejs())
-    .pipe(rename(function (path) {
-        path.extname = '.html';
-    }))
-    .pipe(gulp.dest(pathDist));
+function transformEjs (pathSrc, pathDist) {
+    return gulp.src(path.join(pathSrc, config.pathEjs, '/**/*.ejs'))
+        .pipe(ejs())
+        .pipe(rename(function (path) {
+                path.extname = '.html';
+            }))
+        .pipe(gulp.dest(pathDist));
 }
 
 /**
@@ -140,39 +143,44 @@ function transformEjs(pathSrc, pathDist) {
  * do not set the read option to false.
  */
 gulp.task('clean', function () {
-    return gulp.src(
-        [config.pathDist, config.pathTmp1, config.pathTmp2],
-        {read: false}
-    )
-    .pipe(clean());
+    return gulp.src([config.pathDist, config.pathTmp1, config.pathTmp2], {
+        read: false
+    }).pipe(clean());
 });
 
+const compiler = webpack(webpackConfig);
 /**
  * run task webpack in production env
  */
-gulp.task('webpack', function () {
-    execCmd(['webpack']);
-});
-
-/**
- * run task webpack in develop env
- */
-gulp.task('webpack-dev', function () {
-    execCmd(['webpack', '--env', 'develop']);
+gulp.task('webpack', function (cb) {
+    compiler.run(function (err, stats) {
+        if (err) {
+            throw new gutil.PluginError('webpack: ', err)
+        }
+        gutil.log('Webpack Result: ', '\n' + stats.toString({
+                colors: true
+            }));
+        cb();
+    });
 });
 
 gulp.task('ejs', function () {
-    transformEjs(
-        config.pathSrc,
-        config.pathDevHtml
-    );
+    transformEjs(config.pathSrc, config.pathDevHtml);
 });
 
 gulp.task('ejs-dist', function () {
-    transformEjs(
-        config.pathTmp1,
-        path.join(config.pathTmp1, config.pathTmpHtml)
-    );
+    transformEjs(config.pathTmp1, path.join(config.pathTmp1, config.pathTmpHtml));
+});
+
+gulp.task('compass', function (cb) {
+    execCmd(['compass', 'clean']);
+    execCmd(['compass', 'compile', '--env', argv.env || 'production']);
+    cb();
+});
+gulp.task('less', function (cb) {
+    return gulp.src(path.join(config.pathSrc, config.pathLess, '**/*.less'))
+        .pipe(less())
+        .pipe(gulp.dest(path.join(config.pathSrc, config.pathCss)));
 });
 
 /**
@@ -180,23 +188,20 @@ gulp.task('ejs-dist', function () {
  * 2 init the files
  * 3 watch html, ejs, scss, js files
  */
-gulp.task('serve', function (cb) {
+gulp.task('start-server-dev', function () {
     const app = express();
 
     // 1. router set the correct Content-Type
     // 2. server send the target content to the client
     app.use(config.ajaxPrefix, routeFilter(config.pathDevMock));
-    app.use(config.urlJs, routeFilter(config.pathDevJs));
-    app.use(config.urlCss, routeFilter(path.join(config.pathSrc, config.pathCss)));
-    app.use(config.urlImg, routeFilter(path.join(config.pathSrc, config.pathImg)));
-    app.use(config.urlFonts, routeFilter(path.join(config.pathSrc, config.pathFonts)));
+    app.use(config.urlJs, express.static(config.pathDevJs));
+    app.use(config.urlCss, express.static(path.join(config.pathSrc, config.pathCss)));
+    app.use(config.urlImg, express.static(path.join(config.pathSrc, config.pathImg)));
+    app.use(config.urlFonts, express.static(path.join(config.pathSrc, config.pathFonts)));
     app.use(['/'], routeFilter(config.pathDevHtml));
 
-    // use bodyParser as the default ajax converter
-    app.use(body());
-
-    // setup the livereload server
-    app.use(tinylr.middleware({
+    // use bodyParser as the default ajax converter & setup the livereload server
+    app.use(body()).use(tinylr.middleware({
         app: app
     }));
 
@@ -211,7 +216,23 @@ gulp.task('serve', function (cb) {
         }
         console.log('Server listening on %d', config.port);
     });
+});
+gulp.task('dev', function (cb) {
+    // execCmd(['compass', 'compile', '--env', argv.env || 'production']);
+    runSequence('ejs', 'less', 'start-server-dev');
 
+    compiler.watch({
+        aggregateTimeout: 300
+        // poll: true
+    }, function (err, stats) {
+        if (err) {
+            throw new gutil.PluginError('webpack: ', err)
+        }
+        gutil.log('Webpack Result: ', '\n' + stats.toString({
+                colors: true
+            }));
+        tinylr.changed('xxx.js');
+    });
     /**
      * watch special kind of ext
      * do sth when change according to the ext type
@@ -234,49 +255,36 @@ gulp.task('serve', function (cb) {
      *
      * @param {String} ext
      */
-    function watchFiles(ext) {
+    function watchFiles (ext) {
         gulp.watch(['./src/**/*.' + ext], function (event) {
             if (ext === 'ejs') {
-                transformEjs(
-                    config.pathSrc,
-                    config.pathDevHtml
-                )
-                .on('end', function () {
+                transformEjs(config.pathSrc, config.pathDevHtml).on('end', function () {
                     tinylr.changed(event.path);
                 });
                 return false;
             } else if (ext === 'scss') {
-                execCmd(['compass', 'compile']);
-                tinylr.changed('a.css');
+                execCmd(['compass', 'compile', '--env', argv.env || 'production']);
+            } else if (ext === 'less') {
+                runSequence('less');
             }
-            execCmd(['webpack', '--env', 'develop']);
             tinylr.changed(event.path);
         });
     }
 
-    // compass compile the sass files
-    execCmd(['compass', 'compile']);
-
-    // init files
-    // 1. ejs
-    // 2. webpack-dev
-    runSequence('ejs', 'webpack-dev');
-
-    // then watch these ext type files
     watchFiles('html');
     watchFiles('ejs');
-    watchFiles('scss');
-    watchFiles('js');
+    // watchFiles('scss');
+    watchFiles('less');
 });
 
-gulp.task('server', function (cb) {
+gulp.task('start-server-test', function (cb) {
     const app = express();
 
     app.use(config.ajaxPrefix, routeFilter(config.pathDevMock));
     app.use(['/'], routeFilter(config.pathDist));
-    app.use(body());
-    app.use(tinylr.middleware({app: app}));
-
+    app.use(body()).use(tinylr.middleware({
+        app: app
+    }));
     app.listen(config.port, function (err) {
         if (err) {
             return console.error(err);
@@ -288,26 +296,17 @@ gulp.task('server', function (cb) {
     });
 });
 
-gulp.task('compass', function (cb) {
-    execCmd(['compass', 'clean']);
-    execCmd(['compass', 'compile']);
-    cb();
-});
-
 /**
- *
  * useref-html:
  *
- * useref would compile s.css + d.css + fdfdf.css
+ * useref would compile a.css + b.css + c.css
  * into /style/css/s.css
  *
  * <!-- build:css /style/css/s.css -->
- * <link type="text/css" rel="stylesheet" href="/style/css/s.css"></link>
- * <link type="text/css" rel="stylesheet" href="/style/css/d.css"></link>
- * <link type="text/css" rel="stylesheet" href="/style/css/fdfdf.css"></link>
+ * <link type="text/css" rel="stylesheet" href="/style/css/a.css"></link>
+ * <link type="text/css" rel="stylesheet" href="/style/css/b.css"></link>
+ * <link type="text/css" rel="stylesheet" href="/style/css/c.css"></link>
  * <!-- endbuild -->
- *
- *
  */
 gulp.task('useref-html', function () {
     return gulp.src(path.join(config.pathSrc, '**/*.{html,htm,ejs}'))
@@ -317,12 +316,7 @@ gulp.task('useref-html', function () {
         .pipe(gulpif('*.css', minifyCss()))
         .pipe(gulp.dest(config.pathTmp1));
 });
-
-// gulp.task('useref-flash', function () {
-//     return gulp.src(path.join(config.pathSrc, '**/*.swf'))
-//         .pipe(gulp.dest(config.pathTmp1));
-// });
-gulp.task('useref', ['useref-html']);//, 'useref-flash'
+gulp.task('useref', ['useref-html']);
 
 gulp.task('imagemin', function () {
     if (argv.imgMin && argv.imgMin === 'on') {
@@ -386,101 +380,51 @@ gulp.task('revreplace-ejs', function () {
         path.join(config.pathTmp2, 'rev-manifest-css.json')
     ]);
 
-    return gulp.src(
-        path.join(config.pathTmp1, config.pathTmpHtml, '**/*.html')
-    )
-    .pipe(revReplace({
-        manifest: manifest,
-        replaceInExtensions: ['.html'],
-        prefix: ''
-    }))
-    .pipe(
-        gulp.dest(
-            path.join(config.pathTmp2, config.pathTmpHtml)
-        )
-    );
+    return gulp.src(path.join(config.pathTmp1, config.pathTmpHtml, '**/*.html'))
+        .pipe(revReplace({
+            manifest: manifest,
+            replaceInExtensions: ['.html'],
+            prefix: ''
+        }))
+        .pipe(gulp.dest(path.join(config.pathTmp2, config.pathTmpHtml)));
 });
 
 gulp.task('copy-webapp', function () {
-    return gulp.src(
-        config.pathSrc + '/*.{ico,txt,xml}'
-    ).pipe(
-        gulp.dest(config.pathDist)
-    );
+    return gulp.src(config.pathSrc + '/*.{ico,txt,xml}')
+        .pipe(gulp.dest(config.pathDist));
 });
 
 gulp.task('copy-build-css', function () {
-    return gulp.src(
-        path.join(config.pathTmp2, config.pathCss, '**')
-    ).pipe(
-        gulp.dest(
-            path.join(config.pathDist, config.pathCss)
-        )
-    );
+    return gulp.src(path.join(config.pathTmp2, config.pathCss, '**'))
+        .pipe(gulp.dest(path.join(config.pathDist, config.pathCss)));
 });
 
 gulp.task('copy-build-image', function () {
-    return gulp.src(
-        path.join(config.pathTmp2, config.pathImg, '**')
-    ).pipe(
-        gulp.dest(
-            path.join(config.pathDist, config.pathImg)
-        )
-    );
+    return gulp.src(path.join(config.pathTmp2, config.pathImg, '**'))
+        .pipe(gulp.dest(path.join(config.pathDist, config.pathImg)));
 });
 
 gulp.task('copy-build-fonts', function () {
-    return gulp.src(
-        path.join(config.pathSrc, config.pathFonts, '**')
-    )
-    .pipe(
-        gulp.dest(
-            path.join(config.pathDist, config.pathFonts)
-        )
-    );
+    return gulp.src(path.join(config.pathSrc, config.pathFonts, '**'))
+        .pipe(gulp.dest(path.join(config.pathDist, config.pathFonts)));
 });
 
 // gulp.task('copy-build-flash', function () {
-//     return gulp.src(path.join(config.pathTmp2, flashPath, '**')).pipe(gulp.dest(path.join(config.pathDist, flashPath)));
+//     return gulp.src(path.join(config.pathTmp2, flashPath, '**'))
+//         .pipe(gulp.dest(path.join(config.pathDist, flashPath)));
 // });
 
 gulp.task('copy-build-html', function () {
-    return gulp.src(
-        path.join(config.pathTmp2, config.pathTmpHtml, '**/*.{html,htm}')
-    ).pipe(
-        gulp.dest(
-            path.join(config.pathDist)
-        )
-    );
+    return gulp.src(path.join(config.pathTmp2, config.pathTmpHtml, '**/*.{html,htm}'))
+        .pipe(gulp.dest(path.join(config.pathDist)));
 });
 
-gulp.task('copy-build', [
-    'copy-webapp',
-    'copy-build-css',
-    'copy-build-image',
-    'copy-build-fonts',
-    'copy-build-html'
-]);
-
-// gulp.task('rev', ['rev-image', 'rev-flash', 'rev-css']);
-// gulp.task('build', ['compass', 'useref', 'imagemin', 'rev-image', 'rev-flash', 'revreplace-css', 'rev-css', 'ejs-dist', 'revreplace-ejs']);
+gulp.task('copy-build', ['copy-webapp', 'copy-build-css', 'copy-build-image', 'copy-build-fonts', 'copy-build-html']);
 
 gulp.task('build', function (cb) {
-    runSequence(
-        'clean',
-        'compass',
-        'useref',
-        'ejs-dist',
-        'imagemin',
-        'rev-image',
-        'rev-flash',
-        'revreplace-css',
-        'rev-css',
-        'revreplace-ejs',
-        'webpack',
-        'copy-build',
-        cb
-    );
+    runSequence('clean', 'less', 'useref', 'ejs-dist', 'imagemin', 'rev-image', 'rev-flash', 'revreplace-css', 'rev-css', 'revreplace-ejs', 'webpack', 'copy-build', cb);
 });
-
-gulp.task('default', ['serve']);
+gulp.task('default', ['dev']);
+gulp.task('online', function (cb) {
+    runSequence('build', 'start-server-test');
+});

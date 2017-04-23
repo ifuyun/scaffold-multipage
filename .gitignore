@@ -3,6 +3,9 @@
 .idea
 .sass-cache
 .tmp
-dev
+/**/.DS_Store
+/**/*.css.map
+dev/html
+dev/js
 dist
 .npm-debug*

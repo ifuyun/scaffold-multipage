@@ -9,7 +9,9 @@ images_dir = "/src/style/img"
 generated_images_dir = "/src/style/img"
 # You can select your preferred output style here (can be overridden via the command line):
 # output_style = :expanded or :nested or :compact or :compressed
-output_style = :expanded
+##output_style = :expanded
+env = :development
+output_style = (environment == :production) ? :compressed : :expanded
 
 # To enable relative paths to assets via compass helper functions. Uncomment:
 # relative_assets = true
@@ -26,3 +28,5 @@ Encoding.default_external = "utf-8"
 # preferred_syntax = :sass
 # and then run:
 # sass-convert -R --from scss --to sass sass scss && rm -rf sass && mv scss sass
+
+sourcemap = true
