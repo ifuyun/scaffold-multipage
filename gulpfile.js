@@ -52,7 +52,7 @@ function injectHtml (html) {
     }
     return html;
 }
-function getMimeType (reqPath) {
+function getMimeType (reqPath, staticPath) {
     const mimeType = {
         js: 'text/javascript'
         , css: 'text/css'
@@ -67,10 +67,12 @@ function getMimeType (reqPath) {
         , eot: 'application/vnd.ms-fontobject'
         , json: 'application/json'
     };
-    const reqFormat = /\.([a-z0-9]+)$/i.exec(reqPath) || 'json';
+    const reqFormat = /\.([a-z0-9]+)$/i.exec(reqPath) || [];
     let reqType = '';
     if (reqFormat.length > 1) {
         reqType = mimeType[reqFormat[1]];
+    } else if (staticPath === config.pathDevMock) {
+        reqType = 'application/json';
     }
     return reqType || 'text/plain';
 }
@@ -81,10 +83,10 @@ function routeFilter (staticPath) {
 
         if (fs.existsSync(filePath)) {
             if (/\.html$/.test(reqPath)) {
-                res.set('Content-Type', getMimeType(reqPath));
+                res.set('Content-Type', 'text/html');
                 res.send(injectHtml(fs.readFileSync(filePath, 'UTF-8')));
             } else {
-                res.set('Content-Type', getMimeType(reqPath));
+                res.set('Content-Type', getMimeType(reqPath, staticPath));
                 res.send(fs.readFileSync(filePath, 'UTF-8'));
             }
         } else {
@@ -106,6 +108,7 @@ gulp.task('clean', function () {
         read: false
     }).pipe(clean());
 });
+
 const compiler = webpack(webpackConfig);
 gulp.task('webpack', function (cb) {
     compiler.run(function (err, stats) {
@@ -161,7 +164,7 @@ gulp.task('start-server-dev', function () {
 });
 gulp.task('dev', function (cb) {
     // execCmd(['compass', 'compile', '--env', argv.env || 'production']);
-    runSequence('ejs', 'less', 'start-server-dev');//, 'webpack'
+    runSequence('ejs', 'less', 'start-server-dev');
 
     compiler.watch({
         aggregateTimeout: 300
