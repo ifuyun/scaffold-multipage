@@ -38,7 +38,7 @@ gulp dev --env development
 gulp --env development
 ```
 
-## 测试
+## 测试（本地模拟打包后的环境）
 **注：build+服务**
 
 ```bash
@@ -51,6 +51,7 @@ gulp online
 ```
 
 ## 构建
+### 当前目录构建（用于本地测试）
 ```bash
 npm run build
 ```
@@ -58,6 +59,16 @@ npm run build
 
 ```bash
 gulp build
+```
+
+### 发布构建（用于提测）
+```bash
+npm run release
+```
+或
+
+```bash
+gulp release
 ```
 
 # 开发说明
