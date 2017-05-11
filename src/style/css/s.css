@@ -1,20 +1,13 @@
-/* line 1, ../scss/s.scss */
 body {
   background: #f00;
 }
-
-/* line 4, ../scss/s.scss */
 .red {
   color: red;
   background: url("/style/img/ico.png");
 }
-
-/* line 8, ../scss/s.scss */
 .ico {
   background: url("/style/img/icon-done.png");
 }
-
-/* line 11, ../scss/s.scss */
 .ico-err {
   background: url("/style/img/ico/icon-error.png");
 }

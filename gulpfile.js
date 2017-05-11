@@ -74,6 +74,7 @@ function getMimeType (reqPath, staticPath) {
         , jpg: 'image/jpeg'
         , gif: 'image/gif'
         , svg: 'image/svg+xml'
+        , ico: 'image/x-icon'
         , woff: 'application/font-woff'
         , ttf: 'application/octet-stream'
         , otf: 'application/octet-stream'
@@ -101,7 +102,7 @@ function routeFilter (staticPath) {
                 res.send(injectHtml(fs.readFileSync(filePath, 'UTF-8')));
             } else {
                 res.set('Content-Type', getMimeType(reqPath, staticPath));
-                res.send(fs.readFileSync(filePath, 'UTF-8'));
+                res.send(fs.readFileSync(filePath));
             }
         } else {
             if (reqPath !== '/livereload.js') {
@@ -163,8 +164,7 @@ gulp.task('webpack', function (cb) {
         cb();
     });
 });
-
-gulp.task('ejs', function () {
+gulp.task('ejs-dev', function () {
     transformEjs(config.pathSrc, config.pathDevHtml);
 });
 
@@ -218,8 +218,7 @@ gulp.task('start-server-dev', function () {
     });
 });
 gulp.task('dev', function (cb) {
-    // execCmd(['compass', 'compile', '--env', argv.env || 'production']);
-    runSequence('ejs', 'less', 'start-server-dev');
+    runSequence('ejs-dev', 'less', 'copy-favicon-dev', 'start-server-dev');
 
     compiler.watch({
         aggregateTimeout: 300
@@ -273,7 +272,6 @@ gulp.task('dev', function (cb) {
 
     watchFiles('html');
     watchFiles('ejs');
-    // watchFiles('scss');
     watchFiles('less');
 });
 
@@ -281,7 +279,7 @@ gulp.task('start-server-test', function (cb) {
     const app = express();
 
     app.use(config.ajaxPrefix, routeFilter(config.pathDevMock));
-    app.use(['/'], routeFilter(config.pathDist));
+    app.use(['/'], express.static(config.pathDist));
     app.use(body()).use(tinylr.middleware({
         app: app
     }));
@@ -408,23 +406,39 @@ gulp.task('copy-build-fonts', function () {
     return gulp.src(path.join(config.pathSrc, config.pathFonts, '**'))
         .pipe(gulp.dest(path.join(config.pathDist, config.pathFonts)));
 });
-
-// gulp.task('copy-build-flash', function () {
-//     return gulp.src(path.join(config.pathTmp2, flashPath, '**'))
-//         .pipe(gulp.dest(path.join(config.pathDist, flashPath)));
-// });
-
 gulp.task('copy-build-html', function () {
     return gulp.src(path.join(config.pathTmp2, config.pathTmpHtml, '**/*.{html,htm}'))
         .pipe(gulp.dest(path.join(config.pathDist)));
 });
+gulp.task('clean-release', function () {
+    return gulp.src([config.pathRelease], {
+        read: false
+    }).pipe(clean({
+        force: true
+    }));
+});
+gulp.task('copy-release', function () {
+    return gulp.src(path.join(config.pathDist, '**'))
+        .pipe(gulp.dest(path.join(config.pathRelease)));
+});
+gulp.task('copy-favicon', function () {
+    return gulp.src(path.join(config.pathSrc, 'favicon.ico'))
+        .pipe(gulp.dest(path.join(config.pathDist)));
+});
+gulp.task('copy-favicon-dev', function () {
+    return gulp.src(path.join(config.pathSrc, 'favicon.ico'))
+        .pipe(gulp.dest(path.join(config.pathDevHtml)));
+});
 
-gulp.task('copy-build', ['copy-webapp', 'copy-build-css', 'copy-build-image', 'copy-build-fonts', 'copy-build-html']);
+gulp.task('copy-build', ['copy-webapp', 'copy-build-css', 'copy-build-image', 'copy-build-fonts', 'copy-build-html', 'copy-favicon']);
 
-gulp.task('build', function (cb) {
+gulp.task('build', (cb) => {
     runSequence('clean', 'less', 'useref', 'ejs-dist', 'imagemin', 'rev-image', 'rev-flash', 'revreplace-css', 'rev-css', 'revreplace-ejs', 'webpack', 'copy-build', cb);
 });
-gulp.task('default', ['dev']);
-gulp.task('online', function (cb) {
-    runSequence('build', 'start-server-test');
+gulp.task('online', (cb) => {
+    runSequence('build', 'start-server-test', cb);
 });
+gulp.task('release', (cb) => {
+    runSequence('build', 'clean-release', 'copy-release', cb);
+});
+gulp.task('default', ['dev']);

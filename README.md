@@ -3,7 +3,11 @@ Gulp+Webpack多页系统方案脚手架
 
 # 前置条件
 1. Node.js
-2. Ruby
+2. [Ruby](http://www.ruby-lang.org/en/downloads/)
+
+**注1：Less无需安装Ruby、compass。**
+
+**注2：采用node-sass模块（安装不稳定）的也无需安装Ruby、compass。**
 
 # 环境配置
 ```bash
@@ -13,6 +17,7 @@ gem install compass
 ```bash
 npm i -g gulp
 npm i -g webpack
+npm i
 ```
 
 # 运行
@@ -20,23 +25,50 @@ npm i -g webpack
 **注：服务+监听**
 
 ```bash
-gulp serve
+npm run dev
 ```
+或
 
 ```bash
-gulp
+gulp dev --env development
 ```
-
-## 测试
-**注：服务+build**
+或
 
 ```bash
-gulp server
+gulp --env development
+```
+
+## 测试（本地模拟打包后的环境）
+**注：build+服务**
+
+```bash
+npm run online
+```
+或
+
+```bash
+gulp online
 ```
 
 ## 构建
+### 当前目录构建（用于本地测试）
+```bash
+npm run build
+```
+或
+
 ```bash
 gulp build
+```
+
+### 发布构建（用于提测）
+```bash
+npm run release
+```
+或
+
+```bash
+gulp release
 ```
 
 # 开发说明
@@ -44,7 +76,7 @@ gulp build
 
 * Webpack：模块化+ES6转码
 * Gulp：开发、打包等工程化工具
-* Sass
+* Sass/Less
 * EJS：HTML模板
 * ES6
 
@@ -60,7 +92,7 @@ gulp build
 <script type="text/javascript" src="/js/xxx/xxx.js"></script>
 ```
 ## CSS部分
-通过以下方式定义：
+通过以下方式定义（在build块内的多个css文件将合并成一个）：
 
 ```html
 <!-- build:css /style/css/xxx.css -->
