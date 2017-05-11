@@ -29,6 +29,7 @@
     "openurl": "^1.1.1",
     "run-sequence": "^1.2.2",
     "sync-exec": "^0.6.2",
+    "through2": "^2.0.3",
     "tiny-lr": "^1.0.3",
     "webpack": "^2.2.1",
     "webpack-md5-hash": "0.0.5",

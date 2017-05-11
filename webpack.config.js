@@ -63,15 +63,7 @@ module.exports = {
         rules: [
             {
                 test: /\.(js|jsx)$/,
-                use: [
-                    {
-                        loader: 'babel-loader',
-                        options: {
-                            presets: ["es2015", "stage-0"]
-                        }
-                    }
-                ]
-
+                use: 'babel-loader'
             }
         ]
     },

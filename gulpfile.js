@@ -29,10 +29,6 @@ const less = require('gulp-less');
 const webpack = require('webpack');
 const webpackConfig = require('./webpack.config');
 
-/**
- * @param {Array} cmds
- * @param {Object} processOpts
- */
 function execCmd (cmds, processOpts) {
     let opts;
     if (os.platform() === 'win32') {
@@ -48,10 +44,6 @@ function execCmd (cmds, processOpts) {
     }
 }
 
-/**
- * insert a script of the livereload.js into the html string
- * @param {String} html
- */
 function injectHtml (html) {
     const index = html.lastIndexOf('</body>');
     if (index !== -1) {
@@ -61,10 +53,6 @@ function injectHtml (html) {
     return html;
 }
 
-/**
- *
- * @param {String} reqPath
- */
 function getMimeType (reqPath, staticPath) {
     const mimeType = {
         js: 'text/javascript'
@@ -113,12 +101,6 @@ function routeFilter (staticPath) {
     };
 }
 
-/**
- * compile all the ejs files of the config.pathEjs dir
- * into html files from pathSrc to pathDist
- * @param {String} pathSrc the dir of the src path
- * @param {String} pathDist the dir of the target path
- */
 function transformEjs (pathSrc, pathDist) {
     return gulp.src(path.join(pathSrc, config.pathEjs, '/**/*.ejs'))
         .pipe(ejs())
@@ -128,21 +110,6 @@ function transformEjs (pathSrc, pathDist) {
         .pipe(gulp.dest(pathDist));
 }
 
-/**
- * run task clean
- *
- * config.pathDist
- * config.pathTmp1
- * config.pathTmp2
- * Removes files and folders.
- *
- * {read: false}
- * Option read:false prevents gulp from reading the contents of the file
- * and makes this task a lot faster.
- *
- * If you need the file and its contents after cleaning in the same stream,
- * do not set the read option to false.
- */
 gulp.task('clean', function () {
     return gulp.src([config.pathDist, config.pathTmp1, config.pathTmp2], {
         read: false
@@ -150,9 +117,6 @@ gulp.task('clean', function () {
 });
 
 const compiler = webpack(webpackConfig);
-/**
- * run task webpack in production env
- */
 gulp.task('webpack', function (cb) {
     compiler.run(function (err, stats) {
         if (err) {
@@ -164,6 +128,7 @@ gulp.task('webpack', function (cb) {
         cb();
     });
 });
+
 gulp.task('ejs-dev', function () {
     transformEjs(config.pathSrc, config.pathDevHtml);
 });
@@ -183,30 +148,18 @@ gulp.task('less', function (cb) {
         .pipe(gulp.dest(path.join(config.pathSrc, config.pathCss)));
 });
 
-/**
- * 1 set up the livereload server
- * 2 init the files
- * 3 watch html, ejs, scss, js files
- */
 gulp.task('start-server-dev', function () {
     const app = express();
 
-    // 1. router set the correct Content-Type
-    // 2. server send the target content to the client
     app.use(config.ajaxPrefix, routeFilter(config.pathDevMock));
     app.use(config.urlJs, express.static(config.pathDevJs));
     app.use(config.urlCss, express.static(path.join(config.pathSrc, config.pathCss)));
     app.use(config.urlImg, express.static(path.join(config.pathSrc, config.pathImg)));
     app.use(config.urlFonts, express.static(path.join(config.pathSrc, config.pathFonts)));
     app.use(['/'], routeFilter(config.pathDevHtml));
-
-    // use bodyParser as the default ajax converter & setup the livereload server
     app.use(body()).use(tinylr.middleware({
         app: app
     }));
-
-    // 1. setup express app on the config.port
-    // 2. open url if neccessary
     app.listen(config.port, function (err) {
         if (err) {
             return console.error(err);
@@ -232,28 +185,6 @@ gulp.task('dev', function (cb) {
             }));
         tinylr.changed('xxx.js');
     });
-    /**
-     * watch special kind of ext
-     * do sth when change according to the ext type
-     * ---------------
-     * ext type:
-     *
-     * ejs:
-     *      1. transformEjs
-     *      2. tinylr.changed(event.path)
-     *      end
-     *
-     * scss:
-     * other ext:
-     *      1. compass compile
-     *      2. tinylr.changed(a.css) ????
-     *
-     * webpack --env develop
-     * tinylr.changed(event.path)
-     * end
-     *
-     * @param {String} ext
-     */
     function watchFiles (ext) {
         gulp.watch(['./src/**/*.' + ext], function (event) {
             if (ext === 'ejs') {
@@ -294,18 +225,6 @@ gulp.task('start-server-test', function (cb) {
     });
 });
 
-/**
- * useref-html:
- *
- * useref would compile a.css + b.css + c.css
- * into /style/css/s.css
- *
- * <!-- build:css /style/css/s.css -->
- * <link type="text/css" rel="stylesheet" href="/style/css/a.css"></link>
- * <link type="text/css" rel="stylesheet" href="/style/css/b.css"></link>
- * <link type="text/css" rel="stylesheet" href="/style/css/c.css"></link>
- * <!-- endbuild -->
- */
 gulp.task('useref-html', function () {
     return gulp.src(path.join(config.pathSrc, '**/*.{html,htm,ejs}'))
         .pipe(useref({
