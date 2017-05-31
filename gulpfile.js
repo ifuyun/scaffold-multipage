@@ -20,6 +20,7 @@ const gulpif = require('gulp-if');
 const useref = require('gulp-useref');
 const minifyCss = require('gulp-minify-css');
 const imagemin = require('gulp-imagemin');
+const pngquant = require('imagemin-pngquant');
 const rev = require('gulp-rev');
 const revReplace = require('gulp-rev-replace');
 const argv = require('yargs').argv;
@@ -111,7 +112,7 @@ function transformEjs (pathSrc, pathDist) {
 }
 
 gulp.task('clean', function () {
-    return gulp.src([config.pathDist, config.pathTmp1, config.pathTmp2], {
+    return gulp.src([config.pathDist, config.pathTmp], {
         read: false
     }).pipe(clean());
 });
@@ -246,7 +247,7 @@ gulp.task('imagemin', function () {
                     quality: 90
                 })]
             }))
-            .pipe(gulp.dest(tmp1));
+            .pipe(gulp.dest(config.pathTmp1));
     }
     return gulp.src(path.join(config.pathSrc, '**/*.{jpg,jpeg,gif,png}'))
         .pipe(gulp.dest(config.pathTmp1));
