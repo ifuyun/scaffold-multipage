@@ -29,6 +29,7 @@ const gutil = require('gulp-util');
 const less = require('gulp-less');
 const webpack = require('webpack');
 const webpackConfig = require('./webpack.config');
+const compiler = webpack(webpackConfig);
 
 function execCmd (cmds, processOpts) {
     let opts;
@@ -106,8 +107,8 @@ function transformEjs (pathSrc, pathDist) {
     return gulp.src(path.join(pathSrc, config.pathEjs, '/**/*.ejs'))
         .pipe(ejs())
         .pipe(rename(function (path) {
-                path.extname = '.html';
-            }))
+            path.extname = '.html';
+        }))
         .pipe(gulp.dest(pathDist));
 }
 
@@ -115,27 +116,6 @@ gulp.task('clean', function () {
     return gulp.src([config.pathDist, config.pathTmp], {
         read: false
     }).pipe(clean());
-});
-
-const compiler = webpack(webpackConfig);
-gulp.task('webpack', function (cb) {
-    compiler.run(function (err, stats) {
-        if (err) {
-            throw new gutil.PluginError('webpack: ', err)
-        }
-        gutil.log('Webpack Result: ', '\n' + stats.toString({
-                colors: true
-            }));
-        cb();
-    });
-});
-
-gulp.task('ejs-dev', function () {
-    transformEjs(config.pathSrc, config.pathDevHtml);
-});
-
-gulp.task('ejs-dist', function () {
-    transformEjs(config.pathTmp1, path.join(config.pathTmp1, config.pathTmpHtml));
 });
 
 gulp.task('compass', function (cb) {
@@ -148,6 +128,108 @@ gulp.task('less', function (cb) {
         .pipe(less())
         .pipe(gulp.dest(path.join(config.pathSrc, config.pathCss)));
 });
+
+gulp.task('useref-html', function () {
+    return gulp.src(path.join(config.pathSrc, '**/*.{html,htm,ejs}'))
+        .pipe(useref({
+            searchPath: config.pathSrc
+        }))
+        .pipe(gulpif('*.css', minifyCss()))
+        .pipe(gulp.dest(config.pathTmp1));
+});
+gulp.task('useref', ['useref-html']);
+
+gulp.task('ejs-dist', () => transformEjs(config.pathTmp1, path.join(config.pathTmp1, config.pathTmpHtml)));
+gulp.task('ejs-dev', () => transformEjs(config.pathSrc, config.pathDevHtml));
+
+gulp.task('imagemin', function () {
+    if (argv.imgMin && argv.imgMin === 'on') {
+        return gulp.src(path.join(config.pathSrc, '**/*.{jpg,jpeg,gif,png}'))
+            .pipe(imagemin({
+                // jpg
+                progressive: true,
+                // png
+                use: [pngquant({
+                    quality: 90
+                })]
+            }))
+            .pipe(gulp.dest(config.pathTmp1));
+    }
+    return gulp.src(path.join(config.pathSrc, '**/*.{jpg,jpeg,gif,png}'))
+        .pipe(gulp.dest(config.pathTmp1));
+});
+
+gulp.task('rev-image', function () {
+    return gulp.src([path.join(config.pathTmp1, '**/*.{jpg,jpeg,gif,png}')])
+        .pipe(rev())
+        .pipe(gulp.dest(config.pathTmp2))
+        .pipe(rev.manifest('rev-manifest-img.json'))
+        .pipe(gulp.dest(config.pathTmp2));
+});
+gulp.task('rev-flash', function () {
+    return gulp.src([path.join(config.pathTmp1, '**/*.swf')])
+        .pipe(rev())
+        .pipe(gulp.dest(config.pathTmp2))
+        .pipe(rev.manifest('rev-manifest-flash.json'))
+        .pipe(gulp.dest(config.pathTmp2));
+});
+gulp.task('revreplace-css', function () {
+    const manifest = gulp.src([
+        path.join(config.pathTmp2, 'rev-manifest-img.json')
+    ]);
+
+    return gulp.src(path.join(config.pathTmp1, '**/*.css'))
+        .pipe(revReplace({
+            manifest: manifest,
+            replaceInExtensions: ['.css'],
+            prefix: ''
+        }))
+        .pipe(gulp.dest(config.pathTmp1));
+});
+gulp.task('rev-css', function () {
+    return gulp.src([path.join(config.pathTmp1, '**/*.css')])
+        .pipe(rev())
+        .pipe(gulp.dest(config.pathTmp2))
+        .pipe(rev.manifest('rev-manifest-css.json'))
+        .pipe(gulp.dest(config.pathTmp2));
+});
+gulp.task('revreplace-ejs', function () {
+    const manifest = gulp.src([
+        path.join(config.pathTmp2, 'rev-manifest-img.json'),
+        path.join(config.pathTmp2, 'rev-manifest-flash.json'),
+        path.join(config.pathTmp2, 'rev-manifest-css.json')
+    ]);
+
+    return gulp.src(path.join(config.pathTmp1, config.pathTmpHtml, '**/*.html'))
+        .pipe(revReplace({
+            manifest: manifest,
+            replaceInExtensions: ['.html'],
+            prefix: ''
+        }))
+        .pipe(gulp.dest(path.join(config.pathTmp2, config.pathTmpHtml)));
+});
+
+gulp.task('webpack', function (cb) {
+    compiler.run(function (err, stats) {
+        if (err) {
+            throw new gutil.PluginError('webpack: ', err)
+        }
+        gutil.log('Webpack Result: ', '\n' + stats.toString({
+                colors: true
+            }));
+        cb();
+    });
+});
+
+gulp.task('copy-webapp', () => gulp.src(config.pathSrc + '/*.{ico,txt,xml}').pipe(gulp.dest(config.pathDist)));
+gulp.task('copy-build-css', () => gulp.src(path.join(config.pathTmp2, config.pathCss, '**')).pipe(gulp.dest(path.join(config.pathDist, config.pathCss))));
+gulp.task('copy-build-image', () => gulp.src(path.join(config.pathTmp2, config.pathImg, '**')).pipe(gulp.dest(path.join(config.pathDist, config.pathImg))));
+gulp.task('copy-build-fonts', () => gulp.src(path.join(config.pathSrc, config.pathFonts, '**')).pipe(gulp.dest(path.join(config.pathDist, config.pathFonts))));
+gulp.task('copy-build-html', () => gulp.src(path.join(config.pathTmp2, config.pathTmpHtml, '**/*.{html,htm}')).pipe(gulp.dest(path.join(config.pathDist))));
+gulp.task('copy-favicon', () => gulp.src(path.join(config.pathSrc, 'favicon.ico')).pipe(gulp.dest(path.join(config.pathDist))));
+gulp.task('copy-favicon-dev', () => gulp.src(path.join(config.pathSrc, 'favicon.ico')).pipe(gulp.dest(path.join(config.pathDevHtml))));
+
+gulp.task('copy-build', ['copy-webapp', 'copy-build-css', 'copy-build-image', 'copy-build-fonts', 'copy-build-html', 'copy-favicon']);
 
 gulp.task('start-server-dev', function () {
     const app = express();
@@ -176,7 +258,6 @@ gulp.task('dev', function (cb) {
 
     compiler.watch({
         aggregateTimeout: 300
-        // poll: true
     }, function (err, stats) {
         if (err) {
             throw new gutil.PluginError('webpack: ', err)
@@ -186,26 +267,27 @@ gulp.task('dev', function (cb) {
             }));
         tinylr.changed('xxx.js');
     });
-    function watchFiles (ext) {
-        gulp.watch(['./src/**/*.' + ext], function (event) {
-            if (ext === 'ejs') {
-                transformEjs(config.pathSrc, config.pathDevHtml).on('end', function () {
-                    tinylr.changed(event.path);
-                });
-                return false;
-            } else if (ext === 'scss') {
-                execCmd(['compass', 'compile', '--env', argv.env || 'production']);
-            } else if (ext === 'less') {
-                runSequence('less');
-            }
-            tinylr.changed(event.path);
-        });
-    }
-
-    watchFiles('html');
-    watchFiles('ejs');
-    watchFiles('less');
+    gulp.watch(['./src/**/*.html'], (event) => tinylr.changed(event.path));
+    gulp.watch(['./src/**/*.ejs'], (event) => {
+        transformEjs(config.pathSrc, config.pathDevHtml).on('end', () => tinylr.changed(event.path));
+    });
+    gulp.watch(['./src/**/*.less'], (event) => {
+        runSequence('less');
+        tinylr.changed(event.path);
+    });
 });
+
+gulp.task('build', (cb) => {
+    runSequence('clean', 'less', 'useref', 'ejs-dist', 'imagemin', 'rev-image', 'rev-flash', 'revreplace-css', 'rev-css', 'revreplace-ejs', 'webpack', 'copy-build', cb);
+});
+
+gulp.task('clean-release', () => gulp.src([config.pathRelease], {
+    read: false
+}).pipe(clean({
+    force: true
+})));
+gulp.task('copy-release', () => gulp.src(path.join(config.pathDist, '**')).pipe(gulp.dest(path.join(config.pathRelease))));
+gulp.task('release', (cb) => runSequence('build', 'clean-release', 'copy-release', cb));
 
 gulp.task('start-server-test', function (cb) {
     const app = express();
@@ -225,140 +307,6 @@ gulp.task('start-server-test', function (cb) {
         console.log('Server listening on %d', config.port);
     });
 });
+gulp.task('online', (cb) => runSequence('build', 'start-server-test', cb));
 
-gulp.task('useref-html', function () {
-    return gulp.src(path.join(config.pathSrc, '**/*.{html,htm,ejs}'))
-        .pipe(useref({
-            searchPath: config.pathSrc
-        }))
-        .pipe(gulpif('*.css', minifyCss()))
-        .pipe(gulp.dest(config.pathTmp1));
-});
-gulp.task('useref', ['useref-html']);
-
-gulp.task('imagemin', function () {
-    if (argv.imgMin && argv.imgMin === 'on') {
-        return gulp.src(path.join(config.pathSrc, '**/*.{jpg,jpeg,gif,png}'))
-            .pipe(imagemin({
-                // jpg
-                progressive: true,
-                // png
-                use: [pngquant({
-                    quality: 90
-                })]
-            }))
-            .pipe(gulp.dest(config.pathTmp1));
-    }
-    return gulp.src(path.join(config.pathSrc, '**/*.{jpg,jpeg,gif,png}'))
-        .pipe(gulp.dest(config.pathTmp1));
-});
-
-gulp.task('rev-image', function () {
-    return gulp.src([path.join(config.pathTmp1, '**/*.{jpg,jpeg,gif,png}')])
-        .pipe(rev())
-        .pipe(gulp.dest(config.pathTmp2))
-        .pipe(rev.manifest('rev-manifest-img.json'))
-        .pipe(gulp.dest(config.pathTmp2));
-});
-
-gulp.task('rev-flash', function () {
-    return gulp.src([path.join(config.pathTmp1, '**/*.swf')])
-        .pipe(rev())
-        .pipe(gulp.dest(config.pathTmp2))
-        .pipe(rev.manifest('rev-manifest-flash.json'))
-        .pipe(gulp.dest(config.pathTmp2));
-});
-
-gulp.task('rev-css', function () {
-    return gulp.src([path.join(config.pathTmp1, '**/*.css')])
-        .pipe(rev())
-        .pipe(gulp.dest(config.pathTmp2))
-        .pipe(rev.manifest('rev-manifest-css.json'))
-        .pipe(gulp.dest(config.pathTmp2));
-});
-
-gulp.task('revreplace-css', function () {
-    const manifest = gulp.src([
-        path.join(config.pathTmp2, 'rev-manifest-img.json')
-    ]);
-
-    return gulp.src(path.join(config.pathTmp1, '**/*.css'))
-        .pipe(revReplace({
-            manifest: manifest,
-            replaceInExtensions: ['.css'],
-            prefix: ''
-        }))
-        .pipe(gulp.dest(config.pathTmp1));
-});
-
-gulp.task('revreplace-ejs', function () {
-    const manifest = gulp.src([
-        path.join(config.pathTmp2, 'rev-manifest-img.json'),
-        path.join(config.pathTmp2, 'rev-manifest-flash.json'),
-        path.join(config.pathTmp2, 'rev-manifest-css.json')
-    ]);
-
-    return gulp.src(path.join(config.pathTmp1, config.pathTmpHtml, '**/*.html'))
-        .pipe(revReplace({
-            manifest: manifest,
-            replaceInExtensions: ['.html'],
-            prefix: ''
-        }))
-        .pipe(gulp.dest(path.join(config.pathTmp2, config.pathTmpHtml)));
-});
-
-gulp.task('copy-webapp', function () {
-    return gulp.src(config.pathSrc + '/*.{ico,txt,xml}')
-        .pipe(gulp.dest(config.pathDist));
-});
-
-gulp.task('copy-build-css', function () {
-    return gulp.src(path.join(config.pathTmp2, config.pathCss, '**'))
-        .pipe(gulp.dest(path.join(config.pathDist, config.pathCss)));
-});
-
-gulp.task('copy-build-image', function () {
-    return gulp.src(path.join(config.pathTmp2, config.pathImg, '**'))
-        .pipe(gulp.dest(path.join(config.pathDist, config.pathImg)));
-});
-
-gulp.task('copy-build-fonts', function () {
-    return gulp.src(path.join(config.pathSrc, config.pathFonts, '**'))
-        .pipe(gulp.dest(path.join(config.pathDist, config.pathFonts)));
-});
-gulp.task('copy-build-html', function () {
-    return gulp.src(path.join(config.pathTmp2, config.pathTmpHtml, '**/*.{html,htm}'))
-        .pipe(gulp.dest(path.join(config.pathDist)));
-});
-gulp.task('clean-release', function () {
-    return gulp.src([config.pathRelease], {
-        read: false
-    }).pipe(clean({
-        force: true
-    }));
-});
-gulp.task('copy-release', function () {
-    return gulp.src(path.join(config.pathDist, '**'))
-        .pipe(gulp.dest(path.join(config.pathRelease)));
-});
-gulp.task('copy-favicon', function () {
-    return gulp.src(path.join(config.pathSrc, 'favicon.ico'))
-        .pipe(gulp.dest(path.join(config.pathDist)));
-});
-gulp.task('copy-favicon-dev', function () {
-    return gulp.src(path.join(config.pathSrc, 'favicon.ico'))
-        .pipe(gulp.dest(path.join(config.pathDevHtml)));
-});
-
-gulp.task('copy-build', ['copy-webapp', 'copy-build-css', 'copy-build-image', 'copy-build-fonts', 'copy-build-html', 'copy-favicon']);
-
-gulp.task('build', (cb) => {
-    runSequence('clean', 'less', 'useref', 'ejs-dist', 'imagemin', 'rev-image', 'rev-flash', 'revreplace-css', 'rev-css', 'revreplace-ejs', 'webpack', 'copy-build', cb);
-});
-gulp.task('online', (cb) => {
-    runSequence('build', 'start-server-test', cb);
-});
-gulp.task('release', (cb) => {
-    runSequence('build', 'clean-release', 'copy-release', cb);
-});
 gulp.task('default', ['dev']);
