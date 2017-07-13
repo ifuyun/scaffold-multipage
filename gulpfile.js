@@ -31,21 +31,6 @@ const webpack = require('webpack');
 const webpackConfig = require('./webpack.config');
 const compiler = webpack(webpackConfig);
 
-function execCmd (cmds, processOpts) {
-    let opts;
-    if (os.platform() === 'win32') {
-        opts = ['cmd', '/c'];
-    } else {
-        opts = [];
-    }
-    opts = opts.concat(cmds);
-    const msg = exec(opts.join(' '), 60000, processOpts);
-    console.log(msg.stderr || msg.stdout);
-    if (msg.status !== 0) {
-        throw new Error('Exec cmd: [' + opts.join(' ') + ']');
-    }
-}
-
 function injectHtml (html) {
     const index = html.lastIndexOf('</body>');
     if (index !== -1) {
@@ -118,11 +103,6 @@ gulp.task('clean', function () {
     }).pipe(clean());
 });
 
-gulp.task('compass', function (cb) {
-    execCmd(['compass', 'clean']);
-    execCmd(['compass', 'compile', '--env', argv.env || 'production']);
-    cb();
-});
 gulp.task('less', function (cb) {
     return gulp.src(path.join(config.pathSrc, config.pathLess, '**/*.less'))
         .pipe(less())
