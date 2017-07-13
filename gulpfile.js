@@ -28,6 +28,7 @@ const gutil = require('gulp-util');
 const less = require('gulp-less');
 const webpack = require('webpack');
 const uglify = require('gulp-uglify');
+const babel = require('gulp-babel');
 const webpackConfig = require('./webpack.config');
 const compiler = webpack(webpackConfig);
 
@@ -113,7 +114,7 @@ const checkJsFile = function (file) {
     if (/[\-\.]min.js$/.test(file.path)) {
         return false;
     }
-    if (/.js$/.test(file.path)) {
+    if (/\.js$/.test(file.path)) {
         return true;
     }
     return false;
@@ -124,6 +125,7 @@ gulp.task('useref-html', function () {
         .pipe(useref({
             searchPath: config.pathSrc
         }))
+        .pipe(gulpif(checkJsFile, babel()))
         .pipe(gulpif(checkJsFile, uglify()))
         .pipe(gulpif('*.css', cleanCss()))
         .pipe(gulp.dest(config.pathTmp1));
@@ -228,6 +230,7 @@ gulp.task('copy-build-js', () => gulp.src(path.join(config.pathTmp2, config.path
 gulp.task('copy-build-image', () => gulp.src(path.join(config.pathTmp2, config.pathImg, '**')).pipe(gulp.dest(path.join(config.pathDist, config.pathImg))));
 gulp.task('copy-build-fonts', () => gulp.src(path.join(config.pathSrc, config.pathFonts, '**')).pipe(gulp.dest(path.join(config.pathDist, config.pathFonts))));
 gulp.task('copy-build-html', () => gulp.src(path.join(config.pathTmp2, config.pathTmpHtml, '**/*.{html,htm}')).pipe(gulp.dest(path.join(config.pathDist))));
+gulp.task('copy-js-plugin', () => gulp.src(path.join(config.pathSrc, config.pathJsPluginSrc, '**')).pipe(gulp.dest(path.join(config.pathDist, config.pathJsPluginDist))));
 gulp.task('copy-favicon', () => gulp.src(path.join(config.pathSrc, 'favicon.ico')).pipe(gulp.dest(path.join(config.pathDist))));
 gulp.task('copy-favicon-dev', () => gulp.src(path.join(config.pathSrc, 'favicon.ico')).pipe(gulp.dest(path.join(config.pathDevHtml))));
 

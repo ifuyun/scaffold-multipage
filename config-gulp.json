@@ -5,6 +5,7 @@
   "pathDist": "dist",
   "pathSrc": "src",
   "pathDistHtml": "",
+  "pathViews": "views",
   "pathPages": "views/pages",
   "pathDev": "dev",
   "pathDevMock": "dev/mock",
