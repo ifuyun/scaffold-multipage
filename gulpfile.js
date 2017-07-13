@@ -11,14 +11,13 @@ const server = tinylr();
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const exec = require('sync-exec');
 const ejs = require('gulp-ejs');
 const runSequence = require('run-sequence');
 const clean = require('gulp-clean');
 const rename = require('gulp-rename');
 const gulpif = require('gulp-if');
 const useref = require('gulp-useref');
-const minifyCss = require('gulp-minify-css');
+const cleanCss = require('gulp-clean-css');
 const imagemin = require('gulp-imagemin');
 const pngquant = require('imagemin-pngquant');
 const rev = require('gulp-rev');
@@ -28,6 +27,7 @@ const config = require('./config-gulp.json');
 const gutil = require('gulp-util');
 const less = require('gulp-less');
 const webpack = require('webpack');
+const uglify = require('gulp-uglify');
 const webpackConfig = require('./webpack.config');
 const compiler = webpack(webpackConfig);
 
@@ -109,12 +109,23 @@ gulp.task('less', function (cb) {
         .pipe(gulp.dest(path.join(config.pathSrc, config.pathCss)));
 });
 
+const checkJsFile = function (file) {
+    if (/[\-\.]min.js$/.test(file.path)) {
+        return false;
+    }
+    if (/.js$/.test(file.path)) {
+        return true;
+    }
+    return false;
+};
+
 gulp.task('useref-html', function () {
     return gulp.src(path.join(config.pathSrc, '**/*.{html,htm,ejs}'))
         .pipe(useref({
             searchPath: config.pathSrc
         }))
-        .pipe(gulpif('*.css', minifyCss()))
+        .pipe(gulpif(checkJsFile, uglify()))
+        .pipe(gulpif('*.css', cleanCss()))
         .pipe(gulp.dest(config.pathTmp1));
 });
 gulp.task('useref', ['useref-html']);
@@ -173,11 +184,21 @@ gulp.task('rev-css', function () {
         .pipe(rev.manifest('rev-manifest-css.json'))
         .pipe(gulp.dest(config.pathTmp2));
 });
+
+gulp.task('rev-js', function () {
+    return gulp.src([path.join(config.pathTmp1, '**/*.js')])
+        .pipe(rev())
+        .pipe(gulp.dest(config.pathTmp2))
+        .pipe(rev.manifest('rev-manifest-js.json'))
+        .pipe(gulp.dest(config.pathTmp2));
+});
+
 gulp.task('revreplace-ejs', function () {
     const manifest = gulp.src([
         path.join(config.pathTmp2, 'rev-manifest-img.json'),
         path.join(config.pathTmp2, 'rev-manifest-flash.json'),
-        path.join(config.pathTmp2, 'rev-manifest-css.json')
+        path.join(config.pathTmp2, 'rev-manifest-css.json'),
+        path.join(config.pathTmp2, 'rev-manifest-js.json')
     ]);
 
     return gulp.src(path.join(config.pathTmp1, config.pathTmpHtml, '**/*.html'))
@@ -192,24 +213,29 @@ gulp.task('revreplace-ejs', function () {
 gulp.task('webpack', function (cb) {
     compiler.run(function (err, stats) {
         if (err) {
-            throw new gutil.PluginError('webpack: ', err)
+            throw new gutil.PluginError('webpack: ', err);
         }
         gutil.log('Webpack Result: ', '\n' + stats.toString({
-                colors: true
-            }));
+            colors: true
+        }));
         cb();
     });
 });
 
 gulp.task('copy-webapp', () => gulp.src(config.pathSrc + '/*.{ico,txt,xml}').pipe(gulp.dest(config.pathDist)));
 gulp.task('copy-build-css', () => gulp.src(path.join(config.pathTmp2, config.pathCss, '**')).pipe(gulp.dest(path.join(config.pathDist, config.pathCss))));
+gulp.task('copy-build-js', () => gulp.src(path.join(config.pathTmp2, config.pathJs, '**')).pipe(gulp.dest(path.join(config.pathDist, config.pathJs))));
 gulp.task('copy-build-image', () => gulp.src(path.join(config.pathTmp2, config.pathImg, '**')).pipe(gulp.dest(path.join(config.pathDist, config.pathImg))));
 gulp.task('copy-build-fonts', () => gulp.src(path.join(config.pathSrc, config.pathFonts, '**')).pipe(gulp.dest(path.join(config.pathDist, config.pathFonts))));
 gulp.task('copy-build-html', () => gulp.src(path.join(config.pathTmp2, config.pathTmpHtml, '**/*.{html,htm}')).pipe(gulp.dest(path.join(config.pathDist))));
 gulp.task('copy-favicon', () => gulp.src(path.join(config.pathSrc, 'favicon.ico')).pipe(gulp.dest(path.join(config.pathDist))));
 gulp.task('copy-favicon-dev', () => gulp.src(path.join(config.pathSrc, 'favicon.ico')).pipe(gulp.dest(path.join(config.pathDevHtml))));
 
-gulp.task('copy-build', ['copy-webapp', 'copy-build-css', 'copy-build-image', 'copy-build-fonts', 'copy-build-html', 'copy-favicon']);
+gulp.task('copy-build', ['copy-webapp', 'copy-build-css', 'copy-build-js', 'copy-build-image', 'copy-build-fonts', 'copy-js-plugin', 'copy-build-html', 'copy-favicon']);
+
+gulp.task('build', (cb) => {
+    runSequence('clean', 'less', 'useref', 'ejs-dist', 'imagemin', 'rev-image', 'rev-flash', 'revreplace-css', 'rev-css', 'rev-js', 'revreplace-ejs', 'webpack', 'copy-build', cb);
+});
 
 gulp.task('start-server-dev', function () {
     const app = express();
@@ -233,18 +259,39 @@ gulp.task('start-server-dev', function () {
         console.log('Server listening on %d', config.port);
     });
 });
+
+gulp.task('clean-dev', function () {
+    return gulp.src([config.pathDevHtml, config.pathDevJs, config.pathTmp], {
+        read: false
+    }).pipe(clean());
+});
+
+gulp.task('copy-dev-js-plugin', function () {
+    return gulp.src(path.join(config.pathSrc, config.pathJsPluginSrc, '**'))
+        .pipe(gulp.dest(path.join(config.pathDev, config.pathJsPluginDist)));
+});
+
+gulp.task('copy-dev-js-admin', function () {
+    return gulp.src(path.join(config.pathSrc, config.pathJsDevAdmin, '**'))
+        .pipe(gulp.dest(path.join(config.pathDev, config.pathJsDevAdmin)));
+});
+
+gulp.task('copy-dev-js-web', function () {
+    return gulp.src(path.join(config.pathSrc, config.pathJsDevWeb, '**'))
+        .pipe(gulp.dest(path.join(config.pathDev, config.pathJsDevWeb)));
+});
 gulp.task('dev', function (cb) {
-    runSequence('ejs-dev', 'less', 'copy-favicon-dev', 'start-server-dev');
+    runSequence('clean-dev', 'ejs-dev', 'less', 'copy-dev-js-plugin', 'copy-dev-js-admin', 'copy-dev-js-web', 'copy-favicon-dev', 'start-server-dev');
 
     compiler.watch({
         aggregateTimeout: 300
     }, function (err, stats) {
         if (err) {
-            throw new gutil.PluginError('webpack: ', err)
+            throw new gutil.PluginError('webpack: ', err);
         }
         gutil.log('Webpack Result: ', '\n' + stats.toString({
-                colors: true
-            }));
+            colors: true
+        }));
         tinylr.changed('xxx.js');
     });
     gulp.watch(['./src/**/*.html'], (event) => tinylr.changed(event.path));
@@ -255,10 +302,6 @@ gulp.task('dev', function (cb) {
         runSequence('less');
         tinylr.changed(event.path);
     });
-});
-
-gulp.task('build', (cb) => {
-    runSequence('clean', 'less', 'useref', 'ejs-dist', 'imagemin', 'rev-image', 'rev-flash', 'revreplace-css', 'rev-css', 'revreplace-ejs', 'webpack', 'copy-build', cb);
 });
 
 gulp.task('clean-release', () => gulp.src([config.pathRelease], {
